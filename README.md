@@ -41,6 +41,20 @@ The API exposes `/auth/email`, `/auth/verify`, and `/config` endpoints. It store
 in Redis, persists users, roles, and configuration entries in PostgreSQL, and emits Socket.IO notifications
 every 15 seconds.
 
+### Keeping an online deployment in sync
+
+- Configure the SSH destination in your environment or `.env` file:
+
+  ```bash
+  export TRP_ONLINE_HOST=example.com
+  export TRP_ONLINE_USER=deployer
+  export TRP_ONLINE_PATH=/opt/trp
+  ```
+
+- Run `./update.sh` to compare the local workspace with the remote path. The script performs a dry run,
+  highlights changes in both directions, and prompts you whenever a file differs on both sides so you can
+  decide which version should win.
+
 ### Configuration access
 
 - A default configuration administrator is seeded during database initialization with the credentials
