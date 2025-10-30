@@ -25,8 +25,11 @@ PostgreSQL, Redis, and Node.js dependencies.
 2. Build and start the stack:
 
    ```bash
-   docker compose up --build
+   ./build.sh
    ```
+
+   The script reports container status and useful URLs once everything is up. For
+   interactive log analysis, run `./debug.sh` (optionally with service names).
 
 3. Open the services in your browser:
    - API health check: <http://localhost:3000/healthz>
