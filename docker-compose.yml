@@ -1,0 +1,118 @@
+version: "3.9"
+
+networks:
+  trp_net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  api_node_modules:
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: trp-postgres
+    environment:
+      POSTGRES_USER: trp_app
+      POSTGRES_PASSWORD: trp_pass
+      POSTGRES_DB: trp
+    command: ["postgres", "-c", "config_file=/etc/postgresql/dev.postgres.conf"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./postgres/dev.postgres.conf:/etc/postgresql/dev.postgres.conf:ro
+    networks:
+      - trp_net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trp_app -d trp"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+
+  redis:
+    image: redis:7
+    container_name: trp-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - trp_net
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: trp-api
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      PGHOST: postgres
+      PGUSER: trp_app
+      PGPASSWORD: trp_pass
+      PGDATABASE: trp
+      PGPORT: "5432"
+      REDIS_URL: redis://redis:6379
+      AUTH_EMAIL_SERVICE: gmail
+      AUTH_GOOGLE_REDIRECT_URI: "http://localhost:3000/auth/google/callback"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - trp_net
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api:/workspace/api
+      - api_node_modules:/workspace/api/node_modules
+    command: ["npm", "run", "dev"]
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:3000
+    container_name: trp-web
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:3000
+      PORT: "4173"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - trp_net
+    ports:
+      - "4173:4173"
+
+  php:
+    build:
+      context: ./php-apache
+    container_name: trp-php
+    networks:
+      - trp_net
+    ports:
+      - "8080:80"
+
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: trp-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - trp_net
+    ports:
+      - "5050:80"
